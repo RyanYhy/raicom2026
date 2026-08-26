@@ -12,6 +12,10 @@ __pycache__/
 .vscode/
 .idea/
 
+# Agent context (local only, for Cursor / other agents)
+AGENT_CONTEXT.md
+trash/
+
 # Runtime / logs
 *.bag
 src/raicom2026_recon/data/reports/*
