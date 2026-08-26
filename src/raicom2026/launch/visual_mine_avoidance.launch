@@ -1,0 +1,49 @@
+<launch>
+  <!-- ============================================================
+       visual_mine_avoidance.launch —— 视觉雷区避障 bench/独立测试
+       ============================================================
+       只起: orbbec driver(enable_depth:=true) + base_link->camera_link 静态TF
+             + visual_mine_avoidance 避障节点。不起 move_base/costmap
+             (比赛用 nav_competition_2026.launch 才注入 costmap)。
+       bench 用法:
+         roslaunch raicom2026 visual_mine_avoidance.launch use_rviz:=true
+         # 车静止, 贴纸/真盘放相机前 0.4~0.9m, RViz Fixed Frame=base_footprint
+         # 看 /visual_mine/markers 是否压住贴纸; 偏移则改 cam_* 后重跑
+         rostopic hz /visual_mine/obstacles          # 期望 ≈10Hz
+         rostopic echo /visual_mine/status           # confirmed/total/class
+       ============================================================ -->
+
+  <arg name="use_rviz" default="false"/>
+  <!-- ⚠️ cam_* 默认值为未标定占位: 上机用卷尺量相机相对 base_link 的 x/y/z、
+       水平仪确认无俯仰后改这里 (yaw pitch roll 顺序, 单位 rad), bench 验证重合 -->
+  <arg name="cam_x" default="0.2"/>
+  <arg name="cam_y" default="0.0"/>
+  <arg name="cam_z" default="0.2"/>
+  <arg name="cam_roll" default="0.0"/>
+  <arg name="cam_pitch" default="0.0"/>
+  <arg name="cam_yaw" default="0.0"/>
+
+  <!-- Orbbec DaBai DCW2: 必须 enable_depth:=true (避障节点要 /camera/depth/image_raw) -->
+  <include file="$(find orbbec_camera)/launch/dabai_dcw2.launch">
+    <arg name="enable_depth" value="true"/>
+    <arg name="enable_ir" value="false"/>
+    <arg name="enable_point_cloud" value="false"/>
+  </include>
+
+  <!-- base_link -> camera_link 静态TF (驱动自行发布 camera_link->camera_color_frame
+       ->camera_color_optical_frame, 本节点点云发在 camera_color_optical_frame) -->
+  <node pkg="tf2_ros" type="static_transform_publisher" name="base_to_camera_static"
+        args="$(arg cam_x) $(arg cam_y) $(arg cam_z) $(arg cam_yaw) $(arg cam_pitch) $(arg cam_roll) base_link camera_link"/>
+
+  <!-- 避障节点 -->
+  <node pkg="raicom2026" type="visual_mine_avoidance.py" name="visual_mine_avoidance"
+        output="screen">
+    <rosparam file="$(find raicom2026)/param/visual_mine_avoidance.yaml" command="load"/>
+  </node>
+
+  <group if="$(arg use_rviz)">
+    <node pkg="rviz" type="rviz" name="rviz_avoidance"
+          args="-d $(find raicom2026)/rviz/nav_competition.rviz"/>
+  </group>
+
+</launch>

@@ -1,0 +1,61 @@
+<launch>
+  <!-- ============================================================
+       detect.launch —— RAICOM2026 视觉侦察检测节点 (调试/彩排用)
+       ============================================================
+       启动:
+         1) gimbal_server (独占 /dev/gun, /gun/aim /gun/fire /gun/home /gun/get)
+         2) usb_cam (webcam 848x480 MJPG, /usb_cam/image_raw, 装在云台上)
+         3) webcam_person_gun.py  —— 人物识别 + 云台打靶 (等 /person_detect 触发)
+         4) orbbec_mine_antitank.py —— 雷区 + 反坦克 (自动拉起 dabai_dcw2.launch)
+       Orbbec 驱动: 比赛时由 nav_competition_2026.launch 顶层提供 (enable_depth:=true),
+       本 launch 单独跑(bench/彩排)时由 orbbec_mine_antitank 自动拉起
+       (已改 enable_depth:=true —— 避障节点需要 /camera/depth/image_raw)。
+       若想显式预拉 driver 而不等自动拉起, 加 prestart_orbbec:=true。
+       触发 (另开终端):
+         rostopic pub -1 /person_detect std_msgs/String "A"
+         rostopic pub -1 /mine_detect std_msgs/String "A"
+         rostopic pub -1 /antitank_check std_msgs/Empty "{}"
+       查看状态:
+         rostopic echo /person_detect_status /mine_detect_status
+       比赛总装: nav_competition.py 会触发上面三个话题并调用
+       assemble_report.py 合并 report.txt (见 docs)。
+       ============================================================ -->
+
+  <arg name="prestart_orbbec" default="false"/>
+
+  <!-- 云台服务 (独占 /dev/gun 串口) -->
+  <include file="$(find raicom2026)/launch/gimbal.launch"/>
+
+  <!-- webcam: 848x480 MJPG, 输出 /usb_cam/image_raw -->
+  <include file="$(find raicom2026)/launch/usb_cam_mjpeg.launch"/>
+
+  <!-- 人物识别 + 打靶 (2026-08-15: respawn=true —— 同名冲突被顶掉/干净退出后自动重启,
+       否则 person/mine 服务消失, nav 到站全报服务超时) -->
+  <node pkg="raicom2026" type="webcam_person_gun.py" name="webcam_person_gun"
+        output="screen" respawn="true">
+    <param name="~debug_view" value="true"/>
+  </node>
+
+  <!-- Orbbec 驱动显式预拉 (默认关: 避免与 nav 顶层 driver 双拉; bench 可开) -->
+  <group if="$(arg prestart_orbbec)">
+    <include file="$(find orbbec_camera)/launch/dabai_dcw2.launch">
+      <arg name="enable_depth" value="true"/>
+      <arg name="enable_ir" value="false"/>
+      <arg name="enable_point_cloud" value="false"/>
+    </include>
+  </group>
+
+  <!-- 雷区 + 反坦克 (内部自动拉起 orbbec dabai_dcw2.launch, 已 enable_depth:=true)
+       2026-08-15: respawn=true 同上 -->
+  <node pkg="raicom2026" type="orbbec_mine_antitank.py" name="orbbec_mine_antitank"
+        output="screen" respawn="true">
+    <!-- 2026-08-16 标定参数 (标定后改这里):
+         focal_px: 焦距 (用 calibrate_antitank.py 脚本标定)
+         cam_x:    相机光心相对 base_link 前向偏移 (卷尺量)
+         cam_y:    相机横向偏移 (右正, 通常 0) -->
+    <param name="~focal_px" value="610.0"/>
+    <param name="~cam_x" value="0.2"/>
+    <param name="~cam_y" value="0.0"/>
+  </node>
+
+</launch>

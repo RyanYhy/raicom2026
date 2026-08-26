@@ -1,0 +1,62 @@
+<launch>
+  <!-- ============================================================
+       cartographer_localization.launch —— Cartographer 纯定位 (替代 AMCL)
+       ============================================================
+       加载 pbstream 地图, 只做 scan matching 定位 (不建图), 发布 map→odom TF。
+       与建图共用 localization.lua (基于 my_car.lua 建图参数 + 纯定位 trimmer)。
+
+       用法:
+         roslaunch raicom2026 cartographer_localization.launch
+         或集成到 nav: roslaunch raicom2026 nav_competition_2026.launch loc_mode:=cartographer
+
+       前置: 必须先有 pbstream 地图 (建图后跑 save_pbstream.sh 生成):
+         data/maps/competition_map.pbstream
+       ============================================================ -->
+
+  <arg name="pbstream" default="$(find raicom2026)/data/maps/competition_map.pbstream"/>
+  <arg name="use_rviz" default="true"/>
+  <!-- 起点初始位姿 (map 原点 = 建图起点; 车摆起点时约 (0,0,0)) -->
+  <arg name="initial_x" default="0.0"/>
+  <arg name="initial_y" default="0.0"/>
+  <arg name="initial_yaw_deg" default="0.0"/>
+
+  <!-- 机器人基础: 雷达/IMU/底盘/里程计/EKF/静态TF (与建图/导航一致) -->
+  <include file="$(find robot_bringup)/launch/bringup_robot.launch"/>
+
+  <!-- odom 时间戳保序去重 (cartographer 遇非严格递增 odom 时间戳会 FATAL) -->
+  <node pkg="raicom2026" type="odom_cleaner.py" name="odom_cleaner" output="screen">
+    <param name="~in_topic" value="/odom"/>
+    <param name="~out_topic" value="/odom_clean"/>
+  </node>
+
+  <!-- Cartographer 纯定位主节点 (gflags 走 args, 不用 param)
+       start_trajectory_with_default_topics=false: 不自动 start, 由 carto_init
+       注入起点位姿后 start (防 global localization 对称场地误定位) -->
+  <node pkg="cartographer_ros" type="cartographer_node" name="cartographer_node"
+        args="-configuration_directory $(find raicom2026)/config/cartographer
+              -configuration_basename localization.lua
+              -load_state_filename $(arg pbstream)
+              -start_trajectory_with_default_topics=false"
+        output="screen">
+    <remap from="scan" to="/scan"/>
+    <remap from="odom" to="/odom_clean"/>
+  </node>
+
+  <!-- 初始位姿注入 (起点, 相对 pbstream trajectory ID 1) -->
+  <node pkg="raicom2026" type="carto_init.py" name="carto_init" output="screen">
+    <param name="~x" value="$(arg initial_x)"/>
+    <param name="~y" value="$(arg initial_y)"/>
+    <param name="~yaw_deg" value="$(arg initial_yaw_deg)"/>
+  </node>
+
+  <!-- map_server 加载 pgm 地图 (move_base 用; Cartographer 只提供 TF, 不重发 /map) -->
+  <node name="map_server" pkg="map_server" type="map_server"
+        args="$(find raicom2026)/data/maps/competition_map.yaml"/>
+
+  <!-- rviz 查看定位 (Fixed Frame = map, 看激光是否贴合地图) -->
+  <group if="$(arg use_rviz)">
+    <node pkg="rviz" type="rviz" name="rviz"
+          args="-d $(find raicom2026)/rviz/nav_competition.rviz"/>
+  </group>
+
+</launch>

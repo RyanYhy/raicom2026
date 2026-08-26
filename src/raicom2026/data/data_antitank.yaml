@@ -1,0 +1,11 @@
+# ============================================
+# RAICOM2026 反坦克盘识别数据集配置 (anti_tank.onnx)
+# 类别索引顺序必须与 postprocess 字典一致:
+#   anti_tank.onnx: {0:anti_tank}
+# ============================================
+path: data/yolo_train  # 训练集已移出仓库；复训时请恢复或改路径
+train: images/train
+val: images/val
+
+names:
+  0: anti_tank

@@ -1,0 +1,22 @@
+# Catkin
+build/
+devel/
+install/
+.catkin_workspace
+
+# Python
+__pycache__/
+*.py[cod]
+
+# IDE
+.vscode/
+.idea/
+
+# Runtime / logs
+*.bag
+src/raicom2026_recon/data/reports/*
+src/raicom2026_recon/data/evidence/*
+/tmp/
+
+# Large training archives (keep models/ and maps/ in repo)
+data_backup/

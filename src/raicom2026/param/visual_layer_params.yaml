@@ -1,0 +1,36 @@
+# ============================================================
+# visual_layer_params.yaml —— costmap 注入块 (visual_mine 观察源)
+# ------------------------------------------------------------
+# 由 nav_competition_2026.launch 的 move_base 节点内按序 rosparam load,
+# ns=global_costmap 与 ns=local_costmap 各一次 (最后加载, 覆写 observation_sources)。
+# scan 源参数块在 robot_navigation costmap_common_params.yaml 已完整提供 (只读),
+# 这里只覆写 observation_sources 字符串 + 新增 visual_mine 源块, 两源并存。
+#
+# 原理: roslaunch 在 spawn move_base 前把节点内全部 rosparam 写入参数服务器;
+# 本文件排最后 → /move_base/{global,local}_costmap/observation_sources
+# 最终为 "scan visual_mine", 确定性生效, 绕开 robot_navigation 只读 + clear_params 清参数。
+# ============================================================
+
+observation_sources: "scan visual_mine"
+
+# 2026-08-17 修正: scan 源 clearing 恢复 true —— 之前误关 (2026-08-16),
+# 导致激光标记的障碍永不 raytrace 清除, 车移动/旋转时激光扫过的墙残留,
+# 车周围累积一圈障碍, local costmap 规划不了路线。恢复 clearing=true
+# (激光正常标记+清除), antitank 点云的"被清除"问题靠周期重发(0.5s)解决。
+scan:
+  sensor_frame: laser_link
+  data_type: LaserScan
+  topic: scan
+  marking: true
+  clearing: true
+
+visual_mine:
+  data_type: PointCloud2
+  topic: /visual_mine/obstacles
+  marking: true
+  clearing: false
+  max_obstacle_height: 0.4      # 圆环点 z=0.01 (2026-08-14), XY 圆环全部落在 0~0.4 内
+  min_obstacle_height: 0.0
+  obstacle_range: 5.0           # 2026-08-16: 3.0->5.0 (远盘距离近3m+相机前移0.2m超3m被忽略)
+  raytrace_range: 5.5
+  observation_persistence: 3.0  # 节点端周期重发(0.5s), persistence 3s 足够防清除

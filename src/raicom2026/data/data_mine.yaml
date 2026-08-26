@@ -1,0 +1,13 @@
+# ============================================
+# RAICOM2026 地雷识别数据集配置 (mine.onnx)
+# 类别索引顺序必须与 postprocess 字典一致:
+#   mine.onnx: {0:mine_red, 1:mine_blue}
+#   红=未排雷, 蓝=已排雷
+# ============================================
+path: data/yolo_train  # 训练集已移出仓库；复训时请恢复或改路径
+train: images/train
+val: images/val
+
+names:
+  0: mine_red
+  1: mine_blue

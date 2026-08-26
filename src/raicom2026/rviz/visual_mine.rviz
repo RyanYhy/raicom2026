@@ -1,0 +1,117 @@
+Panels:
+  - Class: rviz/Displays
+    Help Height: 70
+    Name: Displays
+    Property Tree Widget:
+      Expanded:
+        - /Global Options1
+        - /Map1
+        - /RobotModel1
+        - /PointCloud1
+    Tree Height: 400
+  - Class: rviz/Views
+    Expanded:
+      - /Current View1
+    Name: Views
+    Splitter Ratio: 0.5
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Class: rviz/Map
+      Color Scheme: map
+      Draw Behind: false
+      Enabled: true
+      Name: Map
+      Topic: /map
+      Unreliable: false
+      Use Timestamp: false
+      Value: true
+      Alpha: 0.7
+    - Class: rviz/TF
+      Enabled: true
+      Frame Timeout: 15
+      Frames:
+        All Enabled: true
+      Marker Scale: 0.5
+      Name: TF
+      Show Arrows: false
+      Show Axes: true
+      Show Names: true
+      Value: true
+    - Class: rviz/RobotModel
+      Collision Enabled: false
+      Enabled: true
+      Links:
+        All Links Enabled: true
+      Name: RobotModel
+      Robot Description: robot_description
+      TF Prefix: ""
+      Update Interval: 0
+      Value: true
+      Visual Enabled: true
+    - Class: rviz/MarkerArray
+      Enabled: true
+      Name: Visual Mine Markers
+      Namespaces:
+        mine_obstacle: true
+      Queue Size: 10
+      Topic: /visual_mine/markers
+      Unreliable: false
+      Value: true
+    - Class: rviz/PointCloud2
+      Enabled: true
+      Name: Visual Mine Obstacles
+      Topic: /visual_mine/obstacles
+      Unreliable: false
+      Value: true
+      Use Fixed Frame: true
+      Use Rainbow: false
+      Color: 255; 60; 60
+      Size (Pixels): 4
+      Size (m): 0.03
+      Style: Points
+      Decay Time: 0.5
+      Queue Size: 10
+    - Class: rviz/Image
+      Enabled: true
+      Name: Orbbec Color
+      Topic: /camera/color/image_raw
+      Unreliable: false
+      Value: true
+      Transport Hint: raw
+  Enabled: true
+  Global Options:
+    Background Color: 48; 48; 48
+    Default Light: true
+    Fixed Frame: map
+    Frame Rate: 30
+  Name: root
+  Tools:
+    - Class: rviz/Interact
+      Hide Inactive Objects: true
+    - Class: rviz/MoveCamera
+    - Class: rviz/Select
+  Value: true
+  Views:
+    Current:
+      Class: rviz/TopDownOrtho
+      Distance: 8
+      Enable Stereo Rendering:
+        Stereo Eye Separation: 0.06
+        Stereo Focal Distance: 1
+        Swap Stereo Eyes: false
+        Value: false
+      Focal Point:
+        X: 0
+        Y: 0
+        Z: 0
+      Focal Shape Fixed Size: true
+      Focal Shape Size: 0.05
+      Invert Z Axis: false
+      Name: Current View
+      Near Clip Distance: 0.01
+      Pitch: 1.57
+      Target Frame: <Fixed Frame>
+      Value: TopDownOrtho (rviz)
+      Yaw: 0
+    Saved: ~

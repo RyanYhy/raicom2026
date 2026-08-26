@@ -1,0 +1,238 @@
+<launch>
+  <!-- ============================================================
+       nav_competition_2026.launch —— RAICOM2026 比赛主入口 (自持 move_base)
+       ============================================================
+       自持 move_base + robot_navigation 参数, 但:
+         - 自持一份 move_base (clear_params=true, 无 ns), 按序加载 robot_navigation
+           的 7 个参数文件后, 最后加载 visual_layer_params.yaml 覆写
+           observation_sources="scan visual_mine" —— 使避障点云确定性注入
+           global+local costmap (绕开参数被 clear_params 清空 + clear_params 清参数)。
+         - 顶层显式起 orbbec driver (enable_depth:=true), 使 orbbec_mine_antitank
+           与 visual_mine_avoidance 都在 2s 内见帧, 不二次拉起。
+         - 新增 base_link->camera_link 静态TF (本包, cam_* 标定)。
+       用法:
+         roslaunch raicom2026 nav_competition_2026.launch use_rviz:=false
+       验证:
+         rosparam get /move_base/local_costmap/observation_sources   # "scan visual_mine"
+         rosparam get /move_base/global_costmap/observation_sources  # "scan visual_mine"
+         rosrun tf tf_echo base_link camera_link
+         rostopic hz /visual_mine/obstacles                          # ≈10Hz
+       ============================================================ -->
+
+  <!-- 地图: 默认用本包 8/9 建图产出的 competition_map (raicom2026/data/maps)。
+       ⚠️ 若临时用旧图 mymap 调试, 传 map:=$(find raicom2026)/data/maps/mymap.yaml -->
+  <arg name="map" default="$(find raicom2026)/data/maps/map2.yaml"/>
+  <arg name="use_rviz" default="true"/>
+  <arg name="include_detect" default="true"/>
+  <!-- 2026-08-16 定位模式: amcl(默认) / cartographer(纯定位, 需先有 pbstream 地图) -->
+  <arg name="loc_mode" default="amcl"/>
+  <arg name="pbstream" default="$(find raicom2026)/data/maps/map2.pbstream"/>
+  <!-- 2026-08-17 起点初始位姿 (map 原点=建图起点, 车摆起点附近 (0,0)) -->
+  <arg name="initial_x" default="0.0"/>
+  <arg name="initial_y" default="0.0"/>
+  <arg name="initial_yaw_deg" default="0.0"/>
+  <!-- 2026-08-14 比赛两段启动:
+       start_nav:=false = 赛前准备段(外设+模型+AMCL+move_base, 不起导航主程序);
+       计时开始后单独 roslaunch match_go.launch 起导航主程序 (秒级出发)。 -->
+  <arg name="start_nav" default="true"/>
+  <!-- ⚠️ cam_* 默认值为未标定占位: 上机用卷尺量相机相对 base_link 的 x/y/z、
+       水平仪确认无俯仰后改这里 (yaw pitch roll 顺序, 单位 rad), bench 验证重合;
+       未标定前避免实跑判定 -->
+  <arg name="cam_x" default="0.2"/>
+  <arg name="cam_y" default="0.0"/>
+  <arg name="cam_z" default="0.2"/>
+  <arg name="cam_roll" default="0.0"/>
+  <arg name="cam_pitch" default="0.0"/>
+  <arg name="cam_yaw" default="0.0"/>
+
+  <!-- 1. 地图 -->
+  <node name="map_server" pkg="map_server" type="map_server"
+        args="$(arg map)"/>
+
+  <!-- 2. 底盘/雷达/IMU/EKF/静态TF (只读包, 含 base_footprint->base_link 恒等) -->
+  <include file="$(find robot_bringup)/launch/bringup_robot.launch"/>
+
+  <!-- 3. Orbbec DaBai DCW2: 必须 enable_depth:=true (避障节点要深度流)。
+        orbbec_camera 驱动包已在本 ws 内。
+        2026-08-16: depth_registration:=true 开启深度配准 —— 深度图对齐到
+        彩色图坐标, 反坦克盘可直接取框中心深度测距 (比单目框宽测距准)。 -->
+  <include file="$(find orbbec_camera)/launch/dabai_dcw2.launch">
+    <arg name="enable_depth" value="true"/>
+    <arg name="enable_ir" value="false"/>
+    <arg name="enable_point_cloud" value="false"/>
+    <arg name="depth_registration" value="true"/>
+  </include>
+
+  <!-- 4. base_link -> camera_link 静态TF (驱动继续发布
+        camera_link->camera_color_frame->camera_color_optical_frame)
+        2026-08-15: 用自有 test_tf_pub (参数化), tf/tf2_ros 的 static
+        publisher 在本环境均不可靠 (tf2_ros 定位不到 / tf 参数报错)。 -->
+  <node pkg="raicom2026" type="test_tf_pub.py" name="base_to_camera_static">
+    <param name="~publish_map_chain" value="false"/>
+    <param name="~cam_x" value="$(arg cam_x)"/>
+    <param name="~cam_y" value="$(arg cam_y)"/>
+    <param name="~cam_z" value="$(arg cam_z)"/>
+  </node>
+
+  <!-- 5. AMCL 定位 (2026-08-16: 对齐 历史 move_base launch 实测定位良好配置) -->
+  <node pkg="amcl" type="amcl" name="amcl" output="screen"
+        if="$(eval arg('loc_mode') == 'amcl')">
+    <param name="min_particles" value="500"/>
+    <param name="max_particles" value="2000"/>
+    <param name="odom_model_type" value="omni"/>
+    <param name="odom_alpha1" value="0.5"/>
+    <param name="odom_alpha2" value="0.5"/>
+    <param name="odom_alpha3" value="0.5"/>
+    <param name="odom_alpha4" value="0.5"/>
+    <param name="odom_alpha5" value="0.5"/>
+    <param name="laser_model_type" value="likelihood_field"/>
+    <param name="laser_max_range" value="14.0"/>
+    <param name="laser_max_beams" value="180"/>
+    <param name="laser_z_hit" value="0.5"/>
+    <param name="laser_z_short" value="0.05"/>
+    <param name="laser_z_max" value="0.05"/>
+    <param name="laser_z_rand" value="0.5"/>
+    <param name="laser_sigma_hit" value="0.2"/>
+    <param name="laser_lambda_short" value="0.1"/>
+    <param name="laser_likelihood_max_dist" value="2.0"/>
+    <param name="update_min_d" value="0.2"/>
+    <param name="update_min_a" value="0.2"/>
+    <param name="resample_interval" value="1"/>
+    <param name="gui_publish_rate" value="50.0"/>
+    <param name="odom_frame_id" value="odom"/>
+    <param name="base_frame_id" value="base_footprint"/>
+    <param name="global_frame_id" value="map"/>
+    <remap from="scan" to="scan"/>
+    <remap from="static_map" to="/static_map"/>
+    <param name="kld_err" value="0.05"/>
+    <param name="kld_z" value="0.99"/>
+    <param name="transform_tolerance" value="0.5"/>
+    <param name="recovery_alpha_slow" value="0.0"/>
+    <param name="recovery_alpha_fast" value="0.0"/>
+  </node>
+
+  <!-- 5.5 Cartographer 纯定位 (替代 AMCL, loc_mode:=cartographer 时启用) -->
+  <group if="$(eval arg('loc_mode') == 'cartographer')">
+    <!-- odom 时间戳保序去重 (cartographer 遇非严格递增 odom 时间戳 FATAL) -->
+    <node pkg="raicom2026" type="odom_cleaner.py" name="odom_cleaner" output="screen">
+      <param name="~in_topic" value="/odom"/>
+      <param name="~out_topic" value="/odom_clean"/>
+    </node>
+    <!-- 纯定位主节点: 加载 pbstream, 发布 map->odom TF (gflags 走 args)
+         start_trajectory_with_default_topics=false: 不自动 start (避免 global
+         localization 对称场地误定位 ~85cm), 由 carto_init 注入起点位姿后 start -->
+    <node pkg="cartographer_ros" type="cartographer_node" name="cartographer_node"
+          args="-configuration_directory $(find raicom2026)/config/cartographer
+                -configuration_basename localization.lua
+                -load_state_filename $(arg pbstream)
+                -start_trajectory_with_default_topics=false"
+          output="screen">
+      <remap from="scan" to="/scan"/>
+      <remap from="odom" to="/odom_clean"/>
+    </node>
+    <!-- 初始位姿注入 (起点位姿, 相对 pbstream trajectory ID 1) -->
+    <node pkg="raicom2026" type="carto_init.py" name="carto_init" output="screen">
+      <param name="~x" value="$(arg initial_x)"/>
+      <param name="~y" value="$(arg initial_y)"/>
+      <param name="~yaw_deg" value="$(arg initial_yaw_deg)"/>
+    </node>
+    <!-- 手动重定位 (2026-08-17): 订阅 rviz 2D Pose Estimate (/initialpose),
+         转发给 /start_trajectory 重新定位 —— 车摆偏时手动点一下即可修正 -->
+    <node pkg="raicom2026" type="carto_relocalize.py" name="carto_relocalize"
+          output="screen"/>
+  </group>
+
+  <!-- 6. move_base (自持副本, clear_params=true, 无 ns)。
+        rosparam 按序: 7 个 robot_navigation yaml 打底 -> visual_layer_params.yaml
+        覆写 observation_sources (global 再 local), 排在最后保证生效。 -->
+  <node pkg="move_base" type="move_base" respawn="false" name="move_base" output="screen" clear_params="true">
+    <rosparam file="$(find robot_navigation)/param/costmap_common_params.yaml" command="load" ns="global_costmap"/>
+    <rosparam file="$(find robot_navigation)/param/costmap_common_params.yaml" command="load" ns="local_costmap"/>
+    <rosparam file="$(find robot_navigation)/param/local_costmap_params.yaml" command="load"/>
+    <rosparam file="$(find robot_navigation)/param/global_costmap_params.yaml" command="load"/>
+    <rosparam file="$(find robot_navigation)/param/move_base_params.yaml" command="load"/>
+    <rosparam file="$(find robot_navigation)/param/global_planner_params.yaml" command="load"/>
+    <rosparam file="$(find robot_navigation)/param/dwa_local_planner_params.yaml" command="load"/>
+
+    <!-- 2026-08-17: 禁用 rotate_recovery —— 麦轮原地旋转打滑, 定位更漂, 恶性循环。
+         recovery 只清 costmap (conservative + aggressive reset), 不旋转。 -->
+    <rosparam param="recovery_behaviors">
+      - {name: conservative_reset, type: clear_costmap_recovery/ClearCostmapRecovery}
+      - {name: aggressive_reset, type: clear_costmap_recovery/ClearCostmapRecovery}
+    </rosparam>
+
+    <!-- 2026-08-16: 静态场地(不会突然出现障碍), global_costmap 只用 static map
+         (去掉 scan/visual_mine 动态障碍标记 —— 定位偏时激光会把"没障碍的地方"
+         误标成障碍, 导致 global planner 规划失败)。
+         local_costmap 保留 scan visual_mine (Ⅳ区反坦克盘避障实时绕行)。 -->
+    <param name="global_costmap/observation_sources" value=""/>
+    <rosparam file="$(find raicom2026)/param/visual_layer_params.yaml" command="load" ns="local_costmap"/>
+
+    <!-- 坐标系覆写 (与 move_base_multi.launch 一致) -->
+    <param name="global_costmap/global_frame" value="map"/>
+    <param name="global_costmap/robot_base_frame" value="base_footprint"/>
+    <param name="global_costmap/scan/sensor_frame" value="laser_link"/>
+    <param name="global_costmap/obstacle_layer/scan/sensor_frame" value="laser_link"/>
+    <param name="local_costmap/global_frame" value="odom"/>
+    <param name="local_costmap/robot_base_frame" value="base_footprint"/>
+    <param name="local_costmap/scan/sensor_frame" value="laser_link"/>
+    <param name="local_costmap/obstacle_layer/scan/sensor_frame" value="laser_link"/>
+
+    <!-- 2026-08-15 到达容差放宽: 场地实测部分航点靠墙, 8cm 容差车体(17.5x15cm)
+         贴不进墙边 -> 原地转圈卡死 90s。12cm 对任务点影响小
+         (相机 60°视野 0.6m 处宽 ~70cm)。 -->
+    <param name="DWAPlannerROS/xy_goal_tolerance" value="0.12"/>
+    <param name="DWAPlannerROS/yaw_goal_tolerance" value="0.10"/>
+
+    <!-- 2026-08-15 提速: 300s 走不完, 直线/转向速度加快
+         (窄道 480mm, max_vel_x 0.3m/s 直线安全, DWA 近障碍自动减速) -->
+    <param name="DWAPlannerROS/max_vel_x" value="0.30"/>
+    <!-- <param name="DWAPlannerROS/max_vel_y" value="0.20"/> -->
+    <param name="DWAPlannerROS/max_vel_theta" value="0.5"/>
+    <param name="DWAPlannerROS/acc_lim_x" value="0.8"/>
+    <!-- <param name="DWAPlannerROS/acc_lim_y" value="0.8"/> -->
+    <param name="DWAPlannerROS/acc_lim_th" value="1.0"/>
+
+    <remap from="map" to="/map"/>
+    <!-- 2026-08-14 循线: move_base 输出改道 /move_base/cmd_vel,
+         由 cmd_vel_merge 叠加黄线横向修正后发 /cmd_vel -->
+    <remap from="cmd_vel" to="/move_base/cmd_vel"/>
+  </node>
+
+  <!-- 7.5 循线速度叠加 (2026-08-14): move_base/cmd_vel + 黄线偏差 vy -> /cmd_vel
+       2026-08-15: respawn=true —— 本节点是 cmd_vel 链路的单点, 挂了车就停,
+       自动重启兜底 -->
+  <node pkg="raicom2026" type="cmd_vel_merge.py" name="cmd_vel_merge"
+        output="screen" respawn="true">
+    <param name="~kp" value="1.0"/>
+    <param name="~vy_max" value="0.08"/>
+  </node>
+
+  <!-- 7. 视觉雷区/反坦克避障节点 (2026-08-15: respawn=true, 同名冲突自动恢复) -->
+  <node pkg="raicom2026" type="visual_mine_avoidance.py" name="visual_mine_avoidance"
+        output="screen" respawn="true">
+    <rosparam file="$(find raicom2026)/param/visual_mine_avoidance.yaml" command="load"/>
+  </node>
+
+  <!-- 8. 侦察检测节点 (gimbal/usb_cam/人物/雷区计数) -->
+  <group if="$(arg include_detect)">
+    <include file="$(find raicom2026)/launch/detect.launch"/>
+  </group>
+
+  <!-- 9. 自主导航编排节点 (nav_competition.py):
+         BOOT(等map+连move_base+发初始位姿) -> 巡航各站 -> 触发检测 -> 收尾合并报告
+         航点/超时/预算/初始位姿 全在 param/nav_competition.yaml (实机重测只改它) -->
+  <group if="$(arg start_nav)">
+    <node pkg="raicom2026" type="nav_competition.py" name="nav_competition"
+          output="screen" respawn="false">
+      <rosparam file="$(find raicom2026)/param/nav_competition.yaml" command="load"/>
+    </node>
+  </group>
+
+  <!-- 10. RViz -->
+  <group if="$(arg use_rviz)">
+    <node pkg="rviz" type="rviz" name="rviz"
+          args="-d $(find raicom2026)/rviz/nav_competition.rviz"/>
+  </group>
+
+</launch>

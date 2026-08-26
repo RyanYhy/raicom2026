@@ -1,0 +1,12 @@
+# DetectTask.srv —— 触发一次识别任务 (人物/雷区), 同步返回字节级精确报告串
+# 服务端 (webcam_person_gun / orbbec_mine_antitank) 保证在内部超时内返回:
+#   - 人物: 扫描+打靶 单区硬预算 ~20s (ZONE_TIME_BUDGET)
+#   - 雷区: 采样窗口 5s (MINE_SCAN_SEC)
+# 客户端 (nav_competition) 用 wait_for_service + 调用超时保护。
+string zone        # 区名: person 用 A~D, mine 用 A/B
+float32 gimbal_bias  # 云台预偏角(度): 正=左转, 负=右转 (2026-08-13 单位置识别;
+                     # A/B 点人偶在赛道右侧 -> -60; C/D 点在左侧 -> +60; mine 任务忽略)
+---
+bool success       # 任务完成 (扫描完成但识别为 0 也算 success, report 为真实报告串)
+string report      # 字节级精确报告串 (规则格式); 失败为空串
+string message     # 附加信息: ok / busy / timeout / error:... / bad_zone:...

@@ -1,0 +1,6 @@
+# 水弹枪开火服务：单次短促喷射(0.05s burst)
+# burst_ms 控制喷射时长, 默认 50
+float32 burst_ms
+---
+bool success
+string message

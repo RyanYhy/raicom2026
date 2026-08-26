@@ -1,0 +1,66 @@
+# ============================================================
+# visual_mine_avoidance.yaml —— 避障节点参数 (priv ns, rosparam file 加载)
+# ------------------------------------------------------------
+# 所有键与 scripts/visual_mine_avoidance.py 的 rospy.get_param('~key', ...)
+# 一一对应。模型路径缺省由节点用 rospkg 自动解析, 不在此写死。
+# ============================================================
+
+# ---- 模型/推理 ----
+mine_conf: 0.5                 # mine.onnx 最低置信
+at_conf: 0.7                   # antitank.onnx 最低置信 (2026-08-15: 0.5->0.7,
+                               # 场地杂物在0.5~0.65被误检成盘, 车前0.5m固定刷新假圆环)
+iou: 0.45
+intra_op_num_threads: 2
+
+# ---- 目标半径 (球面点集展开半径, m) ----
+mine_radius: 0.12
+at_radius: 0.05           # 反坦克盘点云半径 (2026-08-16: 0.15->0.05, 盘直径10cm
+                           # 只取框中点位置, 以半径5cm发布点云, 不铺太大)
+
+# ---- 深度/投影 ----
+max_range: 1.0                 # 深度有效 0~1m, 更远不注入 costmap
+depth_min: 0.05
+depth_patch: 3                 # 采样邻域 (实际用 pad=1 -> 3x3 中值)
+depth_scale_x: 1.0             # color 640 / depth 640
+depth_scale_y: 0.8333333       # color 480 -> depth 400
+use_camera_info: true          # 优先 camera_info; false 或 5s 内无 info 回退默认内参
+fx: 610.0
+fy: 610.0
+cx: 320.0
+cy: 240.0
+
+# ---- 话题/帧 ----
+rgb_topic: /camera/color/image_raw
+depth_topic: /camera/depth/image_raw
+info_topic: /camera/color/camera_info
+camera_frame: camera_color_optical_frame
+
+# ---- 时序确认 (MineTracker) ----
+tracker_min_hits: 2            # 命中 >=2 次确认
+tracker_max_miss: 4            # 连续 miss >=4 丢弃 (2026-08-15: 25->4, 盘消失后
+                               # ~1.2s 点云即消失, 防"残留点云跟车")
+track_smooth: 0.5              # 指数平滑系数
+track_stale: 2.0               # 候选 >2s 清理
+
+# ---- 调度 ----
+publish_rate: 10.0             # Timer / 发布频率 (Hz)
+cloud_n_pts: 20                # 每盘球面点数
+at_infer_interval: 3           # antitank.onnx 每 N tick 跑一次 (省 CPU)
+
+# ---- 反坦克盘推理门控 (仅四区启用, 2026-08-14) ----
+# 非空 = 仅当 nav_competition 发布当前站名匹配列表时启用 anti_tank 推理。
+# 站名与 param/nav_competition.yaml 的 course[].name 对应:
+#   IV_pos (四区入口) + P30 (四区走廊) + END_pos (终点) —— mine B 之后到全程结束。
+# 未收到站名前(测试模式/赛前) 不门控, 由 /visual_mine/set_enabled 总开关控制。
+at_gate_zones: ["IV_pos", "END_pos"]
+
+# ---- 总开关 (2026-08-15) ----
+# start_enabled=true: 启动即启用避障 (已改纯单目测距映射, 不用深度图,
+# 不再有"车动点云跟车"的假盘问题)。手动关闭: /visual_mine/set_enabled false
+start_enabled: true
+
+# ---- 相机拉起 (默认关: 比赛由 nav_competition_2026.launch 顶层显式起 driver) ----
+auto_launch_camera: false
+
+# ---- costmap 注入自检 ----
+obs_source_key: /move_base/local_costmap/observation_sources

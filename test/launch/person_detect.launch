@@ -1,0 +1,18 @@
+<launch>
+  <!-- ============================================================
+       person_detect.launch —— 任务一(识别+打靶)测试专用 (2026-08-13)
+       ============================================================
+       前台运行: 终端 Ctrl+C 一键关闭全部节点 (gimbal+相机桥+人物节点)。
+       不起 orbbec (避免占用深度相机)。
+       用法 (新终端, .bashrc 已含环境):
+         roslaunch raicom2026 person_detect.launch
+       触发:
+         rosservice call /person_detect_service "{zone: 'A', gimbal_bias: -60.0}"
+       调试图:
+         rosrun image_view image_view image:=/person/debug_image
+       ============================================================ -->
+  <node pkg="raicom2026" type="gimbal_server.py" name="gimbal_server" output="screen"/>
+  <include file="$(find raicom2026)/launch/usb_cam_mjpeg.launch"/>
+  <node pkg="raicom2026" type="webcam_person_gun.py" name="webcam_person_gun"
+        output="screen"/>
+</launch>

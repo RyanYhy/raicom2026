@@ -1,0 +1,92 @@
+<launch>
+  <!-- ============================================================
+       point_calib.launch —— 标点专用环境 (2026-08-13)
+       ============================================================
+       只起: 地图 + 底盘/雷达/IMU/EKF + AMCL 定位 + move_base + rviz。
+       不起: orbbec/避障/检测节点/nav_competition 编排 (避免标点时
+             车按旧占位航点自动乱跑)。
+       用法:
+         终端1  bash ~/start_pointcalib.sh
+         终端2  bash ~/start_goalcap.sh
+         rviz: 2D Pose Estimate 设初始位姿 -> 2D Nav Goal 逐点发目标
+         goal_capture: 车到位后按空格记录 (x,y,yaw 追加到 data/goals.txt)
+       ============================================================ -->
+  <arg name="map" default="$(find raicom2026)/data/maps/competition_map.yaml"/>
+  <arg name="use_rviz" default="true"/>
+
+  <!-- 1. 地图 -->
+  <node name="map_server" pkg="map_server" type="map_server" args="$(arg map)"/>
+
+  <!-- 2. 底盘/雷达/IMU/EKF/静态TF (与比赛完全一致) -->
+  <include file="$(find robot_bringup)/launch/bringup_robot.launch"/>
+
+  <!-- 3. TF 保险 (同 build_map, 防静态TF偶发停更) -->
+  <node pkg="tf2_ros" type="static_transform_publisher" name="tf_static_laser"
+        args="0.1 0.0 0.05 3.14159265 0.0 0.0 base_footprint laser_link"/>
+  <node pkg="tf2_ros" type="static_transform_publisher" name="tf_static_base"
+        args="0.0 0.0 0.0 0.0 0.0 0.0 base_footprint base_link"/>
+
+  <!-- 4. AMCL 定位 (与 nav_competition_2026.launch 完全一致) -->
+  <node pkg="amcl" type="amcl" name="amcl" output="screen">
+    <param name="min_particles" value="500"/>
+    <param name="max_particles" value="2000"/>
+    <param name="odom_model_type" value="omni"/>
+    <param name="odom_alpha1" value="0.5"/>
+    <param name="odom_alpha2" value="0.5"/>
+    <param name="odom_alpha3" value="0.5"/>
+    <param name="odom_alpha4" value="0.5"/>
+    <param name="odom_alpha5" value="0.5"/>
+    <param name="laser_model_type" value="likelihood_field"/>
+    <param name="laser_max_range" value="14.0"/>
+    <param name="laser_max_beams" value="180"/>
+    <param name="laser_z_hit" value="0.5"/>
+    <param name="laser_z_short" value="0.05"/>
+    <param name="laser_z_max" value="0.05"/>
+    <param name="laser_z_rand" value="0.5"/>
+    <param name="laser_sigma_hit" value="0.2"/>
+    <param name="laser_lambda_short" value="0.1"/>
+    <param name="laser_likelihood_max_dist" value="2.0"/>
+    <param name="update_min_d" value="0.2"/>
+    <param name="update_min_a" value="0.2"/>
+    <param name="resample_interval" value="1"/>
+    <param name="gui_publish_rate" value="50.0"/>
+    <param name="odom_frame_id" value="odom"/>
+    <param name="base_frame_id" value="base_footprint"/>
+    <param name="global_frame_id" value="map"/>
+    <remap from="scan" to="scan"/>
+    <remap from="static_map" to="/static_map"/>
+    <param name="kld_err" value="0.05"/>
+    <param name="kld_z" value="0.99"/>
+    <param name="transform_tolerance" value="0.5"/>
+    <param name="recovery_alpha_slow" value="0.0"/>
+    <param name="recovery_alpha_fast" value="0.0"/>
+  </node>
+
+  <!-- 5. move_base (与比赛同参数) -->
+  <node pkg="move_base" type="move_base" respawn="false" name="move_base" output="screen" clear_params="true">
+    <rosparam file="$(find robot_navigation)/param/costmap_common_params.yaml" command="load" ns="global_costmap"/>
+    <rosparam file="$(find robot_navigation)/param/costmap_common_params.yaml" command="load" ns="local_costmap"/>
+    <rosparam file="$(find robot_navigation)/param/local_costmap_params.yaml" command="load"/>
+    <rosparam file="$(find robot_navigation)/param/global_costmap_params.yaml" command="load"/>
+    <rosparam file="$(find robot_navigation)/param/move_base_params.yaml" command="load"/>
+    <rosparam file="$(find robot_navigation)/param/global_planner_params.yaml" command="load"/>
+    <rosparam file="$(find robot_navigation)/param/dwa_local_planner_params.yaml" command="load"/>
+    <rosparam file="$(find raicom2026)/param/visual_layer_params.yaml" command="load" ns="global_costmap"/>
+    <rosparam file="$(find raicom2026)/param/visual_layer_params.yaml" command="load" ns="local_costmap"/>
+    <param name="global_costmap/global_frame" value="map"/>
+    <param name="global_costmap/robot_base_frame" value="base_footprint"/>
+    <param name="global_costmap/scan/sensor_frame" value="laser_link"/>
+    <param name="global_costmap/obstacle_layer/scan/sensor_frame" value="laser_link"/>
+    <param name="local_costmap/global_frame" value="odom"/>
+    <param name="local_costmap/robot_base_frame" value="base_footprint"/>
+    <param name="local_costmap/scan/sensor_frame" value="laser_link"/>
+    <param name="local_costmap/obstacle_layer/scan/sensor_frame" value="laser_link"/>
+    <remap from="map" to="/map"/>
+  </node>
+
+  <!-- 6. RViz -->
+  <group if="$(arg use_rviz)">
+    <node pkg="rviz" type="rviz" name="rviz"
+          args="-d $(find raicom2026)/rviz/nav_competition.rviz"/>
+  </group>
+</launch>

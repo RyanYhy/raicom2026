@@ -1,0 +1,22 @@
+<launch>
+  <!-- ====================================================
+       RAICOM 2026 智能侦察，云台 webcam 启动 (本包专属)
+       ====================================================
+       2026-08-12 实车排查结论 (重要):
+         usb_cam_node (MJPG 848x480) 在本机 Realtek/Sonix 相机上大量
+         "Error while decoding frame", 实际发布画面黑白撕裂不可用;
+         直读 cv2.VideoCapture(0) (YUYV 640x480 相机默认) 画面正常,
+         模型识别恢复正常 (person_best2 三偶全检出)。
+         => 本 launch 改用自研 camera_bridge.py (直读+失败重开重试)。
+       ⚠️ 分辨率 848x480 -> 640x480: param/params.yaml 的 ppd_h/ppd_v
+          需按比例换算 (12.11*640/848 ≈ 9.14) 或重新标定。
+       输出话题: /usb_cam/image_raw (与现有代码一致, 下游零改动)
+     ===================================================== -->
+  <node name="usb_cam" pkg="raicom2026" type="camera_bridge.py" output="screen" respawn="false"/>
+
+  <!-- 便捷查看: 可选项, 需要时取消注释 -->
+  <!-- <node name="image_view" pkg="image_view" type="image_view" respawn="false" output="screen">
+    <remap from="image" to="/usb_cam/image_raw"/>
+    <param name="autosize" value="true" />
+  </node> -->
+</launch>

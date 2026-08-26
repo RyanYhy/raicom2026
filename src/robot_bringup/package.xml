@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>robot_bringup</name>
+  <version>0.1.0</version>
+  <description>Robot sensor and chassis bringup</description>
+  <maintainer email="mowen@todo.todo">mowen</maintainer>
+  <license>BSD</license>
+  <buildtool_depend>catkin</buildtool_depend>
+  <exec_depend>chassis_driver</exec_depend>
+  <exec_depend>imu_driver</exec_depend>
+  <exec_depend>robot_description</exec_depend>
+  <exec_depend>robot_navigation</exec_depend>
+  <exec_depend>car_bringup</exec_depend>
+  <exec_depend>lslidar_driver</exec_depend>
+  <exec_depend>robot_localization</exec_depend>
+  <exec_depend>tf</exec_depend>
+  <exec_depend>robot_state_publisher</exec_depend>
+  <exec_depend>xacro</exec_depend>
+</package>

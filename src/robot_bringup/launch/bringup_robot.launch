@@ -1,0 +1,91 @@
+<launch>
+  <!--
+    ================================================================================
+    机器人基础启动 Launch 文件 (无命名空间/无UWB版)
+
+    此文件直接启动机器人底盘、传感器和定位融合算法。
+    不再依赖 ROBOT_NS 和 USE_UWB 环境变量。
+    ================================================================================
+  -->
+
+  <!-- ======================= 传感器驱动 ======================= -->
+  
+  <!-- 1. 加载雷达 -->
+  <include file="$(find robot_bringup)/launch/lslidar_serial_multi.launch" >
+    <param name="queue_size" value="100"/>
+    <!-- 移除命名空间前缀，直接使用 laser_link -->
+    <arg name="frame_id" value="laser_link"/>
+  </include>
+
+  <!-- 2. 加载IMU驱动 -->
+  <node pkg="imu_driver" type="wit_multi_ros.py" name="imu_node" output="screen">
+      <param name="port" type="str" value="/dev/imu"/>
+      <param name="baud" type="int" value="9600"/>
+      <!-- 移除命名空间前缀，直接使用 base_link -->
+      <param name="frame_id" type="string" value="base_link"/>
+  </node>
+
+  <!-- 3. 加载合并后的底盘驱动节点 -->
+  <node pkg="chassis_driver" name="base_controller" type="base_controller.py" output="screen">
+      <param name="port" type="string" value="/dev/carserial"/>
+      <param name="baud" type="int" value="115200"/>
+  </node>
+  
+  <!-- 4. 里程计转换节点 -->
+  <node pkg="car_bringup" type="base_node" name="odometry_publisher">
+    <!-- 移除命名空间前缀 -->
+    <param name="odom_frame" type="string" value="odom_raw"/>
+    <param name="base_footprint_frame" type="string" value="base_footprint"/>
+    <param name="publish_tf" type="bool" value="false"/>
+    <param name="linear_scale_x" type="double" value="1.0"/>
+    <param name="linear_scale_y" type="double" value="1.0"/>
+    <remap from="/sub_vel" to="vel_raw"/>
+    <remap from="/pub_odom" to="odom_raw"/>
+  </node>
+
+
+  <!-- ======================= 坐标系与模型 ======================= -->
+
+  <!-- 1. 发布静态坐标变换 -->
+  <!-- 移除参数中的命名空间前缀 -->
+  <!-- base_footprint -> laser_link -->
+  <node pkg="tf" type="static_transform_publisher" name="base_footprint_to_laser_link"
+        args="0.1 0.0 0.05 3.14159265 0.0 0.0 base_footprint laser_link 100" />
+
+  <!-- 新增: base_footprint -> base_link (解决 IMU 报错问题) -->
+  <node pkg="tf" type="static_transform_publisher" name="base_footprint_to_base_link"
+        args="0.0 0.0 0.0 0.0 0.0 0.0 base_footprint base_link 100" />
+
+  <!-- 2. 机器人模型加载 -->
+  <!-- 移除 xacro 命令中的 ns:= 参数 -->
+  <param name="robot_description" command="$(find xacro)/xacro --inorder '$(find robot_description)/urdf/mowen.urdf.xacro'" />
+  
+  <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher">
+    <remap from="robot_description" to="robot_description"/>
+  </node>
+
+
+  <!-- ======================= 数据融合 (EKF) ======================= -->
+  
+  <!-- 仅保留通用的 EKF 配置，移除 UWB 相关的 group 判断 -->
+  <node pkg="robot_localization" type="ekf_localization_node" name="ekf_localization" output="screen">
+    <!-- 输入重映射 -->
+    <remap from="/odom0" to="odom_raw"/>
+    <remap from="/imu0" to="imu"/>
+    <!-- 输出重映射 -->
+    <remap from="odometry/filtered" to="odom"/>
+    
+    <!-- 坐标系参数 (移除命名空间前缀) -->
+    <param name="odom_frame" value="odom"/>
+    <param name="base_link_frame" value="base_footprint"/>
+    <param name="world_frame" value="odom"/>
+    <param name="publish_diagnostics" value="false"/>
+
+    <!-- 加载标准 EKF 配置文件 -->
+    <rosparam command="load" file="$(find robot_navigation)/param/robot_localization.yaml"/>
+  </node>
+
+  <!-- ======================= 其他通用节点 ======================= -->
+  <!-- <node pkg="joy (removed)" type="joy_bringup_ros.py" name="joy_bringup_ros_node" output="screen"/> -->
+
+</launch>

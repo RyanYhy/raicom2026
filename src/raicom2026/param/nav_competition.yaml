@@ -1,0 +1,247 @@
+# ============================================================
+# nav_competition.yaml —— 自主导航编排节点配置 (nav_competition.py)
+# ------------------------------------------------------------
+# 2026-08-17: 场地重新实测 22 个航点 (mark_waypoint_live 记录)
+#   任务点: person = P3/P5(一区) + P18/P19(三区)
+#           mine   = P10(二区) + P20(三区)
+#           antitank = P21(四区)
+# ============================================================
+
+# AMCL 初始位姿 (map 系)。起点在 (0, 0) 附近 (map 原点=建图起点)。
+# (Cartographer 模式用 launch 的 initial_x/y/yaw_deg, 这里保持 AMCL 兼容)
+amcl_initial_pose:
+  x: -0.135
+  y: -0.103
+  yaw_deg: -0.44
+
+course:
+  - name: P1
+    x: 3.0151    # 2.892
+    y: -0.0837    #0.021
+    yaw_deg: 84.46
+    tasks: []
+
+  - name: P2
+    x: 3.0786
+    y: 0.419
+    yaw_deg: 178.46
+    tasks: []
+
+  - name: P3          # 一区 识别打靶点 A (人偶在右侧)
+    zone: 一区
+    x: 2.3526
+    y: 0.3982
+    yaw_deg: 143.68
+    gimbal_bias: -60.0
+    tasks:
+      - { type: person, zone: A }
+
+  - name: P4
+    x: 2.3915
+    y: 0.3904
+    yaw_deg: -176.09
+    tasks: []
+
+  - name: P5          # 一区 识别打靶点 B (人偶在右侧)
+    zone: 一区
+    x: 1.3158
+    y: 0.4104
+    yaw_deg: 141.64
+    gimbal_bias: -60.0
+    tasks:
+      - { type: person, zone: B }
+
+  - name: P6
+    x: 1.3109
+    y: 0.4494
+    yaw_deg: -179.73
+    tasks: []
+
+  - name: P6add
+    x: 0.809
+    y: 0.4494
+    yaw_deg: -179.73
+    tasks: []
+
+  - name: P7
+    x: 0.4019
+    y: 0.4925
+    yaw_deg: 178.41
+    tasks: []
+
+  - name: P8 ###
+    x: 0.3719
+    y: 1.225
+    yaw_deg: 91.48
+    tasks: []
+    
+  - name: P9
+    x: 0.3829
+    y: 1.7883
+    yaw_deg: 51.98
+    tasks: []
+
+  - name: P10
+    x: 0.5594
+    y: 1.902
+    yaw_deg: 20.05
+    tasks: []
+
+  - name: P11         # 二区 雷区识别点 A
+    zone: 二区
+    x: 1.286
+    y: 2.0582
+    yaw_deg: 45.38
+    tasks:
+      - { type: mine, zone: A }
+
+  - name: P12
+    x: 1.2812
+    y: 2.0921
+    yaw_deg: 85.72
+    tasks: []
+
+  - name: P13
+    x: 1.3936
+    y: 2.7412
+    yaw_deg: 41.66
+    tasks: []
+
+  - name: P13add
+    x: 1.6036
+    y: 3.0112
+    yaw_deg: 21.66
+    tasks: []
+
+  - name: P14
+    x: 1.9902
+    y: 3.0857
+    yaw_deg: 0.06
+    tasks: []
+
+  - name: P15
+    x: 2.5433
+    y: 2.7686
+    yaw_deg: -59.60
+    tasks: []
+
+  - name: P16
+    x: 2.7353
+    y: 1.953
+    yaw_deg: -91.48
+    tasks: []
+    
+  - name: P17
+    x: 2.7353
+    y: 1.913
+    yaw_deg: -3.35
+    tasks: []
+
+  - name: P18
+    x: 3.2994
+    y: 2.0053
+    yaw_deg: 89.44
+    tasks: []
+
+  - name: P18add
+    x: 3.2994
+    y: 3.0053
+    yaw_deg: 89.44
+    tasks: []
+
+  - name: P19
+    x: 3.3231
+    y: 3.9299
+    yaw_deg: 90.60
+    tasks: []
+
+  - name: P20
+    x: 3.3231
+    y: 4.0100
+    yaw_deg: 160.03
+    tasks: []
+    
+  - name: P21         # 三区 识别打靶点 C (人偶在左侧)
+    zone: 三区
+    x: 2.5754
+    y: 4.0685
+    yaw_deg: -148.71
+    gimbal_bias: 60.0
+    tasks:
+      - { type: person, zone: C }
+
+  - name: P22
+    x: 2.5754
+    y: 4.0685
+    yaw_deg: 178.29
+    tasks: []
+
+  - name: P23         # 三区 识别打靶点 D (人偶在左侧)
+    zone: 三区
+    x: 1.5542
+    y: 4.1032
+    yaw_deg: -152.47
+    gimbal_bias: 60.0
+    tasks:
+      - { type: person, zone: D }
+      
+  - name: P24
+    x: 1.5542
+    y: 4.1032
+    yaw_deg: 178.33
+    tasks: []
+
+  - name: P25         # 三区 雷区识别点 B
+    zone: 三区
+    x: 1.1655
+    y: 4.1804
+    yaw_deg: -179.27
+    gimbal_bias: 60.0
+    tasks:
+      - { type: mine, zone: B }
+      
+  - name: P26         # 四区 反坦克识别点 (停稳后调任务三, 识别两盘发布点云)
+    zone: 三区
+    x: 0.9018
+    y: 4.1703
+    yaw_deg: -145.00
+    tasks:
+      - { type: antitank }
+
+  - name: P26add         # 四区
+    zone: 四区
+    x: 0.9018
+    y: 4.1703
+    yaw_deg: -178
+
+  - name: P27add         # 四区
+    zone: 四区
+    x: 0.0900
+    y: 4.1703
+    yaw_deg: -89.96
+
+  - name: P27         # 四区
+    zone: 四区
+    x: -0.0581
+    y: 1.8473
+    yaw_deg: -89.96
+    
+
+  - name: P28         # 终点
+    zone: 终点
+    x: -0.129
+    y: -0.0767
+    yaw_deg: 0.79
+    tasks: []
+
+# ---- 时序/超时 (秒) ----
+person_timeout_s: 40      # 人物: 单位置扫描5帧~3s + 3敌军打靶~24s
+mine_timeout_s: 12        # 雷区采样 5s + 余量
+nav_timeout_s: 45         # 每段导航最长时间
+nav_retry: 1              # 每段导航失败重试次数
+map_wait_s: 15            # 等 /map 上限
+global_budget_s: 600      # 全场硬预算
+
+# ---- 四区反坦克兜底 ----
+iv_lateral_offset_m: 0.35 # 横向绕行偏移
+iv_stall_wait_s: 3.0      # 失败后等陈旧避障云消失再试

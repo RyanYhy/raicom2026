@@ -1,0 +1,17 @@
+<launch>
+  <!-- ====================================================
+       RAICOM 2026 智能侦察，云台+水弹枪 服务节点
+       ====================================================
+       独占 /dev/gun 串口, 提供:
+         /gun/aim  (GunAim)   pan/tilt 绝对角度
+         /gun/fire (GunFire)  水弹枪点射
+         /gun/home (Trigger)  云台归位 (90,90)
+         /gun/get  (Trigger)  查询当前角度
+       用 roslaunch raicom2026 gimbal.launch 启动
+     ===================================================== -->
+  <node name="gimbal_server" pkg="raicom2026" type="gimbal_server.py"
+        output="screen" respawn="true">
+    <param name="port"    value="/dev/gun" />
+    <param name="baudrate" value="115200" />
+  </node>
+</launch>

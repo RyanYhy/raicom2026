@@ -1,0 +1,7 @@
+# 云台瞄准服务：绝对角度指令(度)
+# servo1=pan(水平, 0-180, 中心90), servo2=tilt(俯仰, 70-110, 中心90)
+float32 pan
+float32 tilt
+---
+bool success
+string message

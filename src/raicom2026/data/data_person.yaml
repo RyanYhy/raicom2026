@@ -1,0 +1,13 @@
+# ============================================
+# RAICOM2026 人物识别数据集配置 (person.onnx)
+# 类别索引顺序必须与 postprocess 字典一致:
+#   person.onnx: {0:hostage, 1:enemy, 2:friend}
+# ============================================
+path: data/yolo_train  # 训练集已移出仓库；复训时请恢复或改路径
+train: images/train
+val: images/val
+
+names:
+  0: hostage
+  1: enemy
+  2: friend

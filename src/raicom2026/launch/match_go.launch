@@ -1,0 +1,16 @@
+<launch>
+  <!-- ============================================================
+       match_go.launch —— 比赛出发段 (2026-08-14)
+       ============================================================
+       赛前已用 nav_competition_2026.launch start_nav:=false 起好
+       全部外设/模型/AMCL/move_base。裁判计时开始后只跑本 launch:
+         仅启动 nav_competition 编排节点 (读航点 yaml -> 发初始位姿 -> 巡航),
+         秒级出发, 省去一键启动的几十秒。
+       用法:
+         roslaunch raicom2026 match_go.launch
+       ============================================================ -->
+  <node pkg="raicom2026" type="nav_competition.py" name="nav_competition"
+        output="screen" respawn="false">
+    <rosparam file="$(find raicom2026)/param/nav_competition.yaml" command="load"/>
+  </node>
+</launch>
